@@ -1,0 +1,44 @@
+{
+    "scr": {
+        "components": [
+            {
+                "implementation-class": "util::json::JsonSerializerImpl",
+                "service": {
+                    "interfaces": [
+                        "util::json::JsonSerializer"
+                    ]
+                }
+            },
+            {
+                "implementation-class": "util::json::JsonSerializerServiceProvider",
+                "properties": {
+                    "property1": "value1",
+                    "property2": [
+                        "value2a",
+                        "value2b"
+                    ],
+                    "property3": true
+                },
+                "references": [
+                    {
+                        "interface": "util::json::JsonSerializer",
+                        "name": "bar"
+                    },
+                    {
+                        "cardinality": "1..n",
+                        "interface": "util::json::JsonSerializerImpl",
+                        "name": "foo",
+                        "policy-option": "greedy"
+                    }
+                ],
+                "service": {
+                    "interfaces": [
+                        "util::ServiceProvider",
+                        "util::json::JsonSerializer"
+                    ]
+                }
+            }
+        ],
+        "version": 1
+    }
+}

@@ -82,6 +82,9 @@ void ComponentParser::parseReferences(Component& component, const clang::CXXReco
                     std::string ParamTypeName = ParamType.getAsString();
                     std::string ParamName = Param->getNameAsString();
                     std::vector<std::string> RefNameAndInterface = DeriveNameFromType(ParamTypeName);
+                    
+                    // Use the clean interface name (RefNameAndInterface[1]) as the reference name
+                    // and the full interface type (RefNameAndInterface[0]) as the interface
                     Reference ref = referenceParser.parse(ConstructorCommentText.str(), RefNameAndInterface[1], RefNameAndInterface[0]);
                     component.addReference(ref);
                 }

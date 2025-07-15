@@ -1,5 +1,6 @@
 #include "PropertyParser.h"
 #include <regex>
+#include <sstream>
 
 nlohmann::json PropertyParser::parse(const std::string& propertiesText) {
     nlohmann::json propertiesJson;

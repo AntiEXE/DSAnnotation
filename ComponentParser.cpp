@@ -7,34 +7,29 @@
 
 using namespace clang;
 
-Component ComponentParser::parse(const clang::CXXRecordDecl* Declaration, clang::ASTContext* Context) {
-    std::string ClassName = Declaration->getQualifiedNameAsString();
-    Component component(ClassName);
-
-    const clang::RawComment *RC = Context->getRawCommentForDeclNoCache(Declaration);
+Component ComponentParser::parse(const clang::CXXRecordDecl* record, clang::ASTContext* Context) {
+    Component component(record->getQualifiedNameAsString());
+    
+    // Extract interfaces (existing logic)
+    for (const auto& base : record->bases()) {
+        if (const auto* baseDecl = base.getType()->getAsCXXRecordDecl()) {
+            component.addInterface(baseDecl->getQualifiedNameAsString());
+        }
+    }
+    
+    // Parse comments for annotations
+    const clang::RawComment* RC = Context->getRawCommentForDeclNoCache(record);
     if (RC) {
-        clang::StringRef CommentText = RC->getRawText(Context->getSourceManager());
-        std::string commentStr = CommentText.str();
-
-        if (!SyntaxChecker::checkBalancedBraces(commentStr, errorCollector, RC->getBeginLoc())) {
-            // Handle the error, perhaps by returning early or setting a flag
-            errorCollector.addError("No comment found for component " + ClassName, 
-                        Declaration->getLocation(), 
-                        ErrorSeverity::WARNING, 
-                        ErrorCategory::COMPONENT);
-        }
+        // Parse component-level attributes (@component {key=value})
+        parseComponentAttributes(component, RC, Context);
+        
+        // Parse properties (@properties, @property)
         parseProperties(component, RC, Context);
+        
+        // Parse references (existing logic)
+        parseReferences(component, record, Context);
     }
-
-    for (const auto &Base : Declaration->bases()) {
-        clang::QualType BaseType = Base.getType();
-        if (const auto *RecordDecl = BaseType->getAsCXXRecordDecl()) {
-            component.addInterface(RecordDecl->getQualifiedNameAsString());
-        }
-    }
-
-    parseReferences(component, Declaration, Context);
-
+    
     return component;
 }
 
@@ -82,6 +77,9 @@ void ComponentParser::parseReferences(Component& component, const clang::CXXReco
                     std::string ParamTypeName = ParamType.getAsString();
                     std::string ParamName = Param->getNameAsString();
                     std::vector<std::string> RefNameAndInterface = DeriveNameFromType(ParamTypeName);
+                    
+                    // Use the clean interface name (RefNameAndInterface[1]) as the reference name
+                    // and the full interface type (RefNameAndInterface[0]) as the interface
                     Reference ref = referenceParser.parse(ConstructorCommentText.str(), RefNameAndInterface[1], RefNameAndInterface[0]);
                     component.addReference(ref);
                 }
@@ -92,8 +90,9 @@ void ComponentParser::parseReferences(Component& component, const clang::CXXReco
 
 void ComponentParser::parseProperties(Component& component, const clang::RawComment* RC, clang::ASTContext* Context) {
     clang::StringRef CommentText = RC->getRawText(Context->getSourceManager());
+    
+    // Handle @properties (goes into properties section)
     size_t propertiesStart = CommentText.find("@properties");
-    size_t propertyStart = CommentText.find("@property");
     if (propertiesStart != clang::StringRef::npos) {
         size_t jsonStart = CommentText.find('{', propertiesStart);
         size_t jsonEnd = CommentText.rfind('}');
@@ -104,7 +103,9 @@ void ComponentParser::parseProperties(Component& component, const clang::RawComm
                 component.setProperties(properties);
             }
         }
-    } else if (propertyStart != clang::StringRef::npos) {
+    }
+    // Handle @property (external file - goes into properties section)
+    else if (size_t propertyStart = CommentText.find("@property"); propertyStart != clang::StringRef::npos) {
         size_t pathStart = CommentText.find('{', propertyStart);
         size_t pathEnd = CommentText.find('}', pathStart);
         if (pathStart != clang::StringRef::npos && pathEnd != clang::StringRef::npos) {
@@ -128,5 +129,25 @@ void ComponentParser::parseExternalProperties(Component& component, const std::s
     } else {
         // Use ErrorCollector to report file not found error
         llvm::errs() << "Error opening file: " << filePath << "\n";
+    }
+}
+
+// NEW: Parse component attributes (separate method)
+void ComponentParser::parseComponentAttributes(Component& component, const clang::RawComment* RC, clang::ASTContext* Context) {
+    clang::StringRef CommentText = RC->getRawText(Context->getSourceManager());
+    
+    // Handle @component {key=value, key=value} - component-level attributes
+    size_t componentStart = CommentText.find("@component");
+    if (componentStart != clang::StringRef::npos) {
+        size_t attrStart = CommentText.find('{', componentStart);
+        size_t attrEnd = CommentText.find('}', attrStart);
+        if (attrStart != clang::StringRef::npos && attrEnd != clang::StringRef::npos) {
+            std::string attributesString = CommentText.substr(attrStart + 1, attrEnd - attrStart - 1).str();
+            // Use PropertyParser to parse key=value pairs with dot notation support
+            nlohmann::json attributes = propertyParser.parse(attributesString);
+            if (!attributes.empty()) {
+                component.setAttributes(attributes);
+            }
+        }
     }
 }

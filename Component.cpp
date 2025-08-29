@@ -14,6 +14,10 @@ void Component::addReference(const Reference& ref) {
     references.push_back(ref);
 }
 
+void Component::setAttributes(const nlohmann::json& attrs) {
+    attributes = attrs;
+}
+
 std::string Component::getClassName() const {
     return className;
 }
@@ -28,4 +32,13 @@ nlohmann::json Component::getProperties() const {
 
 std::vector<Reference> Component::getReferences() const {
     return references;
+}
+
+// NEW: Get component attributes
+nlohmann::json Component::getAttributes() const {
+    return attributes;
+}
+
+bool Component::hasAttributes() const {
+    return !attributes.empty();
 }

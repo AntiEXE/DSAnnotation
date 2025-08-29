@@ -21,6 +21,7 @@ private:
     void parseReferences(Component& component, const clang::CXXRecordDecl* Declaration, clang::ASTContext* Context);
     void parseProperties(Component& component, const clang::RawComment* RC, clang::ASTContext* Context);
     void parseExternalProperties(Component& component, const std::string& filePath, clang::ASTContext* Context);
+    void parseComponentAttributes(Component& component, const clang::RawComment* RC, clang::ASTContext* Context);  // NEW
     ReferenceParser referenceParser;
     PropertyParser propertyParser;
     ErrorCollector& errorCollector;

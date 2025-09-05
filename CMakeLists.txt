@@ -1,14 +1,24 @@
 cmake_minimum_required(VERSION 3.10)
 project(AnnotationParser)
- 
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
- 
+set(CMAKE_PREFIX_PATH "C:/gtest" ${CMAKE_PREFIX_PATH})
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
- 
-add_executable(parser
-    main.cpp
+find_package(GTest CONFIG REQUIRED)
+# include(FetchContent)
+# FetchContent_Declare(
+#   googletest
+#   # Specify the commit you depend on and update it regularly.
+#   URL https://github.com/google/googletest/archive/5376968f6948923e2411081fd9372e71a59d8e77.zip
+# )
+# # For Windows: Prevent overriding the parent project's compiler/linker settings
+# set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+# FetchContent_MakeAvailable(googletest)
+
+# Create a library for the core functionality (excluding main.cpp)
+add_library(parser_lib
     ASTVisitor.cpp
     ComponentParser.cpp
     Reference.cpp
@@ -21,14 +31,25 @@ add_executable(parser
     SyntaxChecker.cpp
     ManifestMerger.cpp
 )
- 
+
+# Create the main executable
+add_executable(parser main.cpp)
+
+target_include_directories(parser_lib
+    PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE
+    ${LLVM_INCLUDE_DIRS}
+    ${CLANG_INCLUDE_DIRS}
+)
+
 target_include_directories(parser
     PRIVATE 
     ${LLVM_INCLUDE_DIRS}
     ${CLANG_INCLUDE_DIRS}
 )
- 
-# --- Platform-dependent linking ---
+
+# Platform-dependent linking (keeping your existing logic)
 if (WIN32)
     set(CLANG_LIBS
         clangTooling
@@ -48,6 +69,9 @@ if (WIN32)
         core
         option
         binaryformat
+        mc
+        bitreader
+        profiledata
         demangle
         # add more if you get linker errors
     )
@@ -55,14 +79,23 @@ else()
     set(CLANG_LIBS clang-cpp)
     set(LLVM_LIBS LLVM)
 endif()
- 
-target_link_libraries(parser
-    PRIVATE
+
+target_link_libraries(parser_lib
+    PUBLIC
     ${CLANG_LIBS}
     ${LLVM_LIBS}
 )
- 
-target_compile_definitions(parser
+
+target_link_libraries(parser 
+    PRIVATE 
+    parser_lib
+)
+
+target_compile_definitions(parser_lib
     PRIVATE
     ${LLVM_DEFINITIONS}
 )
+
+# Enable testing
+enable_testing()
+add_subdirectory(tests)

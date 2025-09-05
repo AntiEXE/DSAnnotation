@@ -3,7 +3,7 @@ project(AnnotationParser)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_PREFIX_PATH "C:/gtest" ${CMAKE_PREFIX_PATH})
+# If GTest is not found, set GTEST_ROOT or CMAKE_PREFIX_PATH externally to help CMake locate it.
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
 find_package(GTest CONFIG REQUIRED)

@@ -1,11 +1,61 @@
 #include "ComponentParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
-// #include "Logger.h"
+#include "clang/AST/PrettyPrinter.h"
+#include "clang/AST/DeclTemplate.h"
+#include "clang/AST/Type.h"
+#include "clang/AST/TemplateBase.h"
+#include "clang/AST/TemplateName.h"
 #include "SyntaxChecker.h"
 #include <regex>
 
 using namespace clang;
+
+namespace {
+    std::pair<std::string, std::string> extractInterfaceNames(const clang::ParmVarDecl* param,
+                                                            clang::ASTContext& ctx) {
+        clang::QualType spelled = param->getType().getNonReferenceType();
+        clang::QualType target = spelled;
+
+        if (const auto* tmpl = target->getAs<clang::TemplateSpecializationType>()) {
+            if (const auto* tmplDecl = tmpl->getTemplateName().getAsTemplateDecl()) {
+                const std::string qname = tmplDecl->getQualifiedNameAsString();
+                if (qname == "std::shared_ptr" || qname == "std::unique_ptr") {
+                    auto args = tmpl->template_arguments();
+                    if (!args.empty() && args[0].getKind() == clang::TemplateArgument::Type) {
+                        target = args[0].getAsType().getNonReferenceType();
+                    }
+                }
+            }
+        }
+
+        clang::QualType canonical = ctx.getCanonicalType(target).getUnqualifiedType();
+
+        clang::PrintingPolicy fqPolicy(ctx.getLangOpts());
+        fqPolicy.adjustForCPlusPlus();
+        fqPolicy.FullyQualifiedName = true;
+        std::string fqName = canonical.getAsString(fqPolicy);
+
+        clang::PrintingPolicy spelledPolicy(ctx.getLangOpts());
+        spelledPolicy.adjustForCPlusPlus();
+        spelledPolicy.FullyQualifiedName = false;
+        std::string display = target.getAsString(spelledPolicy);
+
+        std::string simplified = display;
+        if (auto lt = simplified.rfind('<'); lt != std::string::npos) {
+            simplified = simplified.substr(lt + 1);
+            if (!simplified.empty() && simplified.back() == '>') {
+                simplified.pop_back();
+            }
+        }
+        simplified = llvm::StringRef(simplified).trim().str();
+        if (auto pos = simplified.rfind("::"); pos != std::string::npos) {
+            simplified = simplified.substr(pos + 2);
+        }
+
+        return {fqName, simplified};
+    }
+} 
 
 Component ComponentParser::parse(const clang::CXXRecordDecl* record, clang::ASTContext* Context) {
     Component component(record->getQualifiedNameAsString());
@@ -33,39 +83,6 @@ Component ComponentParser::parse(const clang::CXXRecordDecl* record, clang::ASTC
     return component;
 }
 
-std::vector<std::string> DeriveNameFromType(const std::string& typeName) {
-    std::string extractedTypeName = typeName;
-    
-    // Remove 'const' if present
-    size_t constPos = extractedTypeName.find("const ");
-    if (constPos != std::string::npos) {
-        extractedTypeName.erase(constPos, 6);
-    }
-    
-    // Remove 'std::shared_ptr<' and '>' if present
-    size_t sharedPtrPos = extractedTypeName.find("std::shared_ptr<");
-    if (sharedPtrPos != std::string::npos) {
-        extractedTypeName.erase(sharedPtrPos, 16);
-        extractedTypeName.erase(extractedTypeName.find_last_of('>'));
-    }
-    
-    // Remove '&' if present
-    size_t refPos = extractedTypeName.find('&');
-    if (refPos != std::string::npos) {
-        extractedTypeName.erase(refPos);
-    }
-    
-    // Trim any leading or trailing whitespace
-    extractedTypeName = std::regex_replace(extractedTypeName, std::regex("^\\s+|\\s+$"), "");
-    
-    // Find the last occurrence of '::' and extract the simplified name
-    size_t lastColon = extractedTypeName.rfind("::");
-    std::string simplifiedName = (lastColon != std::string::npos) ? 
-        extractedTypeName.substr(lastColon + 2) : extractedTypeName;
-    
-    return {extractedTypeName, simplifiedName};
-}
-
 void ComponentParser::parseReferences(Component& component, const clang::CXXRecordDecl* Declaration, clang::ASTContext* Context) {
     for (const auto* Constructor : Declaration->ctors()) {
         const clang::RawComment *ConstructorRC = Context->getRawCommentForDeclNoCache(Constructor);
@@ -73,14 +90,14 @@ void ComponentParser::parseReferences(Component& component, const clang::CXXReco
             clang::StringRef ConstructorCommentText = ConstructorRC->getRawText(Context->getSourceManager());
             if (ConstructorCommentText.contains("@reference")) {
                 for (const auto* Param : Constructor->parameters()) {
-                    clang::QualType ParamType = Param->getType();
-                    std::string ParamTypeName = ParamType.getAsString();
-                    std::string ParamName = Param->getNameAsString();
-                    std::vector<std::string> RefNameAndInterface = DeriveNameFromType(ParamTypeName);
-                    
+                    // clang::QualType ParamType = Param->getType();
+                    // std::string ParamTypeName = ParamType.getAsString();
+                    // std::string ParamName = Param->getNameAsString();
+                    // std::vector<std::string> RefNameAndInterface = DeriveNameFromType(ParamTypeName);
+                    auto [interfaceFq, simplified] = extractInterfaceNames(Param, *Context);
                     // Use the clean interface name (RefNameAndInterface[1]) as the reference name
                     // and the full interface type (RefNameAndInterface[0]) as the interface
-                    Reference ref = referenceParser.parse(ConstructorCommentText.str(), RefNameAndInterface[1], RefNameAndInterface[0]);
+                    Reference ref = referenceParser.parse(ConstructorCommentText.str(), simplified, interfaceFq);
                     component.addReference(ref);
                 }
             }
@@ -132,7 +149,7 @@ void ComponentParser::parseExternalProperties(Component& component, const std::s
     }
 }
 
-// NEW: Parse component attributes (separate method)
+//Parse component attributes
 void ComponentParser::parseComponentAttributes(Component& component, const clang::RawComment* RC, clang::ASTContext* Context) {
     clang::StringRef CommentText = RC->getRawText(Context->getSourceManager());
     

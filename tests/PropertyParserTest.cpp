@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
-#include "PropertyParser.h"
+
+#include "DSAnnotation/Parsing/PropertyParser.h"
+#include "nlohmann/json.hpp"
 
 class PropertyParserTest : public ::testing::Test {
 protected:
-    PropertyParser parser;
+    dsannotation::parsing::PropertyParser parser;
 };
 
 TEST_F(PropertyParserTest, ParsesSimpleKeyValuePair) {
@@ -36,4 +38,36 @@ TEST_F(PropertyParserTest, HandlesEmptyInput) {
 TEST_F(PropertyParserTest, HandlesMalformedInput) {
     nlohmann::json result = parser.parse("invalidformat");
     EXPECT_TRUE(result.empty());
+}
+
+TEST_F(PropertyParserTest, ParsesCardinalityAsString) {
+    nlohmann::json result = parser.parse("cardinality=0..1");
+    EXPECT_EQ(result["cardinality"], "0..1");
+    EXPECT_TRUE(result["cardinality"].is_string());
+}
+
+TEST_F(PropertyParserTest, ParsesVariousCardinalityPatterns) {
+    nlohmann::json result = parser.parse("card1=1..1,card2=0..n,card3=1..n,card4=0..0");
+    EXPECT_EQ(result["card1"], "1..1");
+    EXPECT_EQ(result["card2"], "0..n");
+    EXPECT_EQ(result["card3"], "1..n");
+    EXPECT_EQ(result["card4"], "0..0");
+    
+    // Verify all are strings, not numbers
+    EXPECT_TRUE(result["card1"].is_string());
+    EXPECT_TRUE(result["card2"].is_string());
+    EXPECT_TRUE(result["card3"].is_string());
+    EXPECT_TRUE(result["card4"].is_string());
+}
+
+TEST_F(PropertyParserTest, ParsesRegularNumbersAsNumbers) {
+    nlohmann::json result = parser.parse("int=42,float=3.14,negative=-5");
+    EXPECT_EQ(result["int"], 42);
+    EXPECT_EQ(result["float"], 3.14);
+    EXPECT_EQ(result["negative"], -5);
+    
+    // Verify types
+    EXPECT_TRUE(result["int"].is_number_integer());
+    EXPECT_TRUE(result["float"].is_number_float());
+    EXPECT_TRUE(result["negative"].is_number_integer());
 }

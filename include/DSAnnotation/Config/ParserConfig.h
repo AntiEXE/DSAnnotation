@@ -19,7 +19,7 @@ struct ParserConfig {
 
     // JSON formatting
     int jsonIndentation{4};
-    bool compactJson{true};
+    bool compactJson{false};
 
     bool isValid() const {
         return !outputDirectory.empty() && !outputFileName.empty();

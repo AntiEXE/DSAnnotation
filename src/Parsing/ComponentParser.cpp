@@ -1,4 +1,5 @@
 #include "DSAnnotation/Parsing/ComponentParser.h"
+#include "DSAnnotation/Parsing/AnnotationValidator.h"
 
 #include <utility>
 
@@ -32,13 +33,11 @@ static support::SourceLocationInfo convertSourceLocation(clang::SourceLocation l
 
 ComponentParser::ComponentParser(const IPropertyParser& propertyParser,
                                  const IReferenceParser& referenceParser,
-                                 const support::ISyntaxChecker& syntaxChecker,
                                  const support::IFileSystem& fileSystem,
                                  core::ErrorCollector& errorCollector,
                                  const config::ParserConfig& config)
     : propertyParser_(propertyParser),
       referenceParser_(referenceParser),
-      syntaxChecker_(syntaxChecker),
       fileSystem_(fileSystem),
       errorCollector_(errorCollector),
       config_(config) {}
@@ -56,12 +55,42 @@ core::Component ComponentParser::parse(const clang::CXXRecordDecl& declaration,
     const auto* comment = context.getRawCommentForDeclNoCache(&declaration);
     if (comment) {
         auto locationInfo = convertSourceLocation(comment->getBeginLoc(), context.getSourceManager());
-        if (!syntaxChecker_.checkBalancedBraces(comment->getRawText(context.getSourceManager()).str(),
-                                                errorCollector_,
-                                                component.className(),
-                                                locationInfo)) {
-            // continue parsing but errors will be recorded
+        
+        // Use new comprehensive annotation validator
+        AnnotationValidator annotationValidator;
+        auto validationResult = annotationValidator.validateComment(
+            comment->getRawText(context.getSourceManager()).str(), 
+            locationInfo
+        );
+        
+        // Handle validation errors
+        if (validationResult.hasCriticalErrors()) {
+            for (const auto& error : validationResult.errors) {
+                errorCollector_.addError(
+                    error.message,
+                    locationInfo,
+                    error.severity,
+                    core::ErrorCategory::Component
+                );
+            }
+            // STOP processing - mark component as invalid by clearing class name
+            core::Component invalidComponent("");  // Empty class name indicates invalid component
+            return invalidComponent;
         }
+        
+        // Handle validation warnings  
+        for (const auto& warning : validationResult.warnings) {
+            errorCollector_.addError(
+                warning.message, 
+                locationInfo,
+                core::ErrorSeverity::Warning,
+                core::ErrorCategory::Component
+            );
+        }
+        
+        // Note: Since ComponentParser::parse() is only called when @component is found
+        // (by ASTVisitor), we don't need to check for missing @component here.
+        // The architecture already ensures @component exists in this comment block.
 
         parseComponentAttributes(component, *comment, context);
         parseProperties(component, *comment, declaration, context);

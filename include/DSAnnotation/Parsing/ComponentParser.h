@@ -9,7 +9,6 @@
 #include "DSAnnotation/Parsing/IPropertyParser.h"
 #include "DSAnnotation/Parsing/IReferenceParser.h"
 #include "DSAnnotation/Support/IFileSystem.h"
-#include "DSAnnotation/Support/ISyntaxChecker.h"
 
 namespace clang {
 class ASTContext;
@@ -24,7 +23,6 @@ class ComponentParser final : public IComponentParser {
 public:
     ComponentParser(const IPropertyParser& propertyParser,
                     const IReferenceParser& referenceParser,
-                    const support::ISyntaxChecker& syntaxChecker,
                     const support::IFileSystem& fileSystem,
                     core::ErrorCollector& errorCollector,
                     const config::ParserConfig& config);
@@ -56,7 +54,6 @@ private:
 
     const IPropertyParser& propertyParser_;
     const IReferenceParser& referenceParser_;
-    const support::ISyntaxChecker& syntaxChecker_;
     const support::IFileSystem& fileSystem_;
     core::ErrorCollector& errorCollector_;
     const config::ParserConfig& config_;

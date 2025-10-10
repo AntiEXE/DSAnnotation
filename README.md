@@ -1,177 +1,76 @@
 
-# Annotation Parser for CppMicroservices
+# DSAnnotation
 
-This tool parses C++ annotations for CppMicroservices, generating a JSON manifest for Declarative Services.
+DSAnnotation is a modular Clang-based tooling pipeline that scans C++ translation units for Declarative Services annotations and emits a merged OSGi manifest. The refactor introduces composable modules, testable seams, and clearer layering between parsing, serialization, and infrastructure support.
 
-## Compilation
+## Project layout
 
-To compile the tool, use the following command:
-```bash
-clang++ main.cpp ASTVisitor.cpp ComponentParser.cpp Reference.cpp Component.cpp JsonGenerator.cpp PropertyParser.cpp ReferenceParser.cpp ErrorCollector.cpp ErrorReporter.cpp SyntaxChecker.cpp -fPIC -o parser -L$(llvm-config --libdir) -I$(llvm-config --includedir) $(llvm-config --cxxflags --libs) -O3 -lclangTooling -lclangASTMatchers -lclangFormat -lclangFrontend -lclangDriver -lclangParse -lLLVMMCParser -lclangSerialization -lclangSema -lclangEdit -lclangAnalysis -lLLVMBitReader -lLLVMProfileData -lclangToolingCore -lclangAST -lclangRewrite -lclangLex -lclangBasic -lLLVMCore -lLLVMBinaryFormat -lLLVMMC -lLLVMOption -lLLVMSupport -lz -lcurses -lLLVMDemangle
 ```
-## Usage
-Run the tool on your C++ files:
-```bash
-./parser path/to/your/cpp/file.cpp
-```
-
-## Class Diagram
-
-```ascii
-                                                                                                                           ┌──────────────────────────────────────────────────────┐                                                                                                                                                    
-                                                                                                                           │ASTVisitor                                            │                                                                                                                                                    
-┌──────────────────────────────────────────────────┐                                                                       ├──────────────────────────────────────────────────────┤                                                                                                                                                    
-│JsonGenerator                                     │                                                                       │-Context: ASTContext*                                 │                                                                                                                                                    
-├──────────────────────────────────────────────────┤                                                                       │-componentParser: ComponentParser                     │                                                                                                                                                    
-│+generateJson(components: vector<Component>): json│                                                                       │-Components: vector<Component>                        │                                                                                                                                                    
-└──────────────────────────────────────────────────┘                                                                       │+VisitCXXRecordDecl(Declaration: CXXRecordDecl*): bool│                                                                                                                                                    
-                          |                                                                                                │+GetComponents(): vector<Component>                   │                                                                                                                                                    
-                          |                                                                                                └──────────────────────────────────────────────────────┘                                                                                                                                                    
-                          |                                                                                                                                                                                                                                                                                                            
-                          |                                                                                                                                                                                                                                                                                                            
-       ┌───────────────────────────────────┐                                                                                                                                                                                                                                                                                           
-       │Component                          │                                                                                                                                                                                                                                                                                           
-       ├───────────────────────────────────┤                                   ┌──────────────────────────────────────────────────────────────────────────────────────────┐                                                                                                                                                            
-       │-className: string                 │                                   │ComponentParser                                                                           │                                                                                                                                                            
-       │-interfaces: vector<string>        │                                   ├──────────────────────────────────────────────────────────────────────────────────────────┤         ┌────────────────────────────────┐   ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-       │-properties: json                  │                                   │-errorCollector: ErrorCollector&                                                          │         │ErrorReporter                   │   │SyntaxChecker                                                                                               │
-       │-references: vector<Reference>     │                                   │-referenceParser: ReferenceParser                                                         │         ├────────────────────────────────┤   ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-       │+addInterface(interface: string)   │                                   │-propertyParser: PropertyParser                                                           │         │-errorCollector: ErrorCollector&│   │+{static} checkBalancedBraces(text: string, errorCollector: ErrorCollector&, loc: SourceLocation): bool     │
-       │+setProperties(props: json)        │                                   │+parse(Declaration: CXXRecordDecl*, Context: ASTContext*): Component                      │         │+generateSummary(): string      │   │+{static} checkBalancedParentheses(text: string, errorCollector: ErrorCollector&, loc: SourceLocation): bool│
-       │+addReference(ref: Reference)      │                                   │-parseReferences(component: Component&, Declaration: CXXRecordDecl*, Context: ASTContext*)│         │+printReport()                  │   │+{static} checkValidPropertyFormat(text: string, errorCollector: ErrorCollector&, loc: SourceLocation): bool│
-       │+getClassName(): string            │                                   │-parseProperties(component: Component&, RC: RawComment*, Context: ASTContext*)            │         └────────────────────────────────┘   └────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-       │+getInterfaces(): vector<string>   │                                   │-parseExternalProperties(component: Component&, filePath: string, Context: ASTContext*)   │                                                                                                                                                            
-       │+getProperties(): json             │                                   └──────────────────────────────────────────────────────────────────────────────────────────┘                                                                                                                                                            
-       │+getReferences(): vector<Reference>│                                                                                                                                                                                                                                                                                           
-       └───────────────────────────────────┘                                                                                                                                                                                                                                                                                           
-                          |                                                                                                                                                                                                                                                                                                            
-           ┌───────────────────────────┐                                                                                                                                                                                                                                                                                               
-           │Reference                  │                                                                                                     ┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐                                                                                  
-           ├───────────────────────────┤                                                                                                     │ErrorCollector                                                                                        │                                                                                  
-           │-name: string              │   ┌────────────────────────────────────────────────────────────────────────────────┐                ├──────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                  
-           │-interface: string         │   │ReferenceParser                                                                 │                │-errors: vector<Error>                                                                                │                                                                                  
-           │-properties: json          │   ├────────────────────────────────────────────────────────────────────────────────┤                │-SM: SourceManager*                                                                                   │                                                                                  
-           │+setProperties(props: json)│   │-propertyParser: PropertyParser                                                 │                │+addError(message: string, location: SourceLocation, severity: ErrorSeverity, category: ErrorCategory)│                                                                                  
-           │+getName(): string         │   │+parse(referenceString: string, paramName: string, paramType: string): Reference│                │+getErrors(): vector<Error>                                                                           │                                                                                  
-           │+getInterface(): string    │   └────────────────────────────────────────────────────────────────────────────────┘                │+getSourceManager(): SourceManager&                                                                   │                                                                                  
-           │+getProperties(): json     │                                                                                                     └──────────────────────────────────────────────────────────────────────────────────────────────────────┘                                                                                  
-           └───────────────────────────┘                                                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                       
-                                                                                        ┌────────────────────────────────────┐                                                                                                                                                                                                         
-                                                                                        │PropertyParser                      │                                                                                                                                                                                                         
-                                                                                        ├────────────────────────────────────┤                                                                                                                                                                                                         
-                                                                                        │+parse(propertiesText: string): json│                                                                                                                                                                                                         
-                                                                                        └────────────────────────────────────┘
+include/DSAnnotation/
+  Core/           # Domain models (Component, Reference, Error, Result)
+  Parsing/        # AST visitor + parser interfaces/implementations
+  Serialization/  # Manifest builder, merger, writer abstractions
+  Support/        # Error reporting, filesystem, syntax helpers
+  Config/         # Runtime configuration objects
+src/
+  Core/           # Concrete domain types
+  Parsing/        # Parsing pipeline implementations
+  Serialization/  # JSON generation & manifest merge
+  Support/        # Platform services (filesystem, checks)
+app/
+  main.cpp        # Composition root & Clang tool wiring
+tests/
+  ...             # GoogleTest unit coverage
 ```
 
-## Example
-### Input:
-```cpp
-#include <memory>
-namespace util
-{
-    class ServiceProvider
-    {
-    public:
-    };
+Legacy headers in the repository root now forward to the new `include/DSAnnotation` hierarchy to ease migration, but new development should include the modular headers directly.
 
-    namespace json
-    {
+## Build
 
-        class JsonSerializer
-        {
-        public:
-            JsonSerializer();
-        };
-        /** @component
-         * @property{./aw.json}
-         */
-        class JsonSerializerImpl : public util::json::JsonSerializer
-        {
-        public:
-            bool ret()
-            {
-                return 0;
-            }
-        };
-        /** @component {inject-references = true}
-         * @properties {"property1":"value1","property2":["value2a","value2b"],"property3":true}
-         */
-        class JsonSerializerServiceProvider : public util::ServiceProvider, public util::json::JsonSerializer
-        {
-        public:
-            /**
-             * @reference bar
-             * @reference foo {policy-option = greedy, cardinality = 1..n}
-             */
-            JsonSerializerServiceProvider(const std::shared_ptr<util::json::JsonSerializer> &bar, const std::shared_ptr<util::json::JsonSerializerImpl> &foo);
-
-            bool ret()
-            {
-                return 0;
-            }
-        };
-    }
-}
+```powershell
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
-### Output
-```json
-{
-    "scr": {
-        "components": [
-            {
-                "implementation-class": "util::json::JsonSerializerImpl",
-                "properties": {
-                    "property1": "value1",
-                    "property2": [
-                        "value2a",
-                        "value2b"
-                    ],
-                    "property3": true
-                },
-                "service": {
-                    "interfaces": [
-                        "util::json::JsonSerializer"
-                    ]
-                }
-            },
-            {
-                "implementation-class": "util::json::JsonSerializerServiceProvider",
-                "properties": {
-                    "property1": "value1",
-                    "property2": [
-                        "value2a",
-                        "value2b"
-                    ],
-                    "property3": true
-                },
-                "references": [
-                    {
-                        "interface": "util::json::JsonSerializer",
-                        "name": "bar"
-                    },
-                    {
-                        "cardinality": "1..n",
-                        "interface": "util::json::JsonSerializerImpl",
-                        "name": "foo",
-                        "policy-option": "greedy"
-                    }
-                ],
-                "service": {
-                    "interfaces": [
-                        "util::ServiceProvider",
-                        "util::json::JsonSerializer"
-                    ]
-                }
-            }
-        ],
-        "version": 1
-    }
-}
+
+The top-level `CMakeLists.txt` exposes:
+
+- `dsannotation_core`, `dsannotation_support`, `dsannotation_parsing`, `dsannotation_serialization` – structured static libraries
+- `dsannotation` – CLI executable backed by the modular pipeline
+- `dsannotation_tests` – GoogleTest suite (see below)
+
+### Running the tool
+
+```powershell
+build\dsannotation.exe --help
+build\dsannotation.exe -i path\to\existing\manifest.json -o out\dir source.cpp
 ```
-## Features
--   Parses @component, @reference, and @properties annotations
--   Supports loading properties from external JSON files
--   Provides detailed error reporting
+
+Output is written to `ParserConfig::outputDirectory / ParserConfig::outputFileName` (default `manifest.json`). Existing manifests are merged so custom bundle metadata is preserved.
+
+### Tests
+
+```powershell
+cmake --build build --target dsannotation_tests
+ctest --test-dir build
+```
+
+Additional unit tests can be added under `tests/` and linked against the modular libraries.
+
+## Design highlights
+
+- **Dependency inversion** – every major subsystem (`IComponentParser`, `IManifestWriter`, `IFileSystem`, etc.) is expressed as an interface. Concrete implementations are composed in `app/main.cpp`, which keeps the rest of the codebase framework-agnostic and easy to mock.
+- **Error handling** – `core::ErrorCollector` centralizes diagnostics with formatted source locations, while `support::ErrorReporter` produces human-friendly summaries.
+- **Filesystem abstraction** – `support::IFileSystem` decouples file access, simplifying testing (mockable in unit tests) and future portability.
+- **Configuration-first** – `config::ParserConfig` captures output paths, validation flags, and formatting preferences, allowing future CLI/UI layers to remain thin.
+
+## Migration notes
+
+- Legacy sources in the repository root are marked as deprecated and forward to the new modular headers. They remain temporarily for backwards compatibility but will be removed after downstream clients migrate.
+- Consumers should link against the new CMake targets rather than compiling individual `.cpp` files manually.
+
+## Next steps
+
+- Add focused unit tests for `ComponentParser` using pre-built AST fixtures.
+- Provide mocks for `IFileSystem` and `ISyntaxChecker` in the test suite to validate edge cases (e.g., missing property files, brace mismatch reporting).
+- Expand integration tests that execute the full tool via `clang::tooling::runToolOnCode`.
 

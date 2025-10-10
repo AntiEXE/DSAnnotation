@@ -14,7 +14,6 @@
 #include "DSAnnotation/Serialization/ManifestMerger.h"
 #include "DSAnnotation/Support/ErrorReporter.h"
 #include "DSAnnotation/Support/LocalFileSystem.h"
-#include "DSAnnotation/Support/SyntaxChecker.h"
 
 #include <memory>
 #include <utility>
@@ -49,12 +48,10 @@ public:
         support::LocalFileSystem fileSystem;
         parsing::PropertyParser propertyParser;
         parsing::ReferenceParser referenceParser(propertyParser);
-        support::SyntaxChecker syntaxChecker;
         core::ErrorCollector errorCollector(context.getSourceManager());
 
         parsing::ComponentParser componentParser(propertyParser,
                                                  referenceParser,
-                                                 syntaxChecker,
                                                  fileSystem,
                                                  errorCollector,
                                                  config_);

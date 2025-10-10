@@ -28,7 +28,6 @@ target_include_directories(dsannotation_core
 add_library(dsannotation_support
     src/Support/ErrorReporter.cpp
     src/Support/LocalFileSystem.cpp
-    src/Support/SyntaxChecker.cpp
 )
 target_link_libraries(dsannotation_support
     PUBLIC
@@ -46,6 +45,7 @@ add_library(dsannotation_parsing
     src/Parsing/ComponentParser.cpp
     src/Parsing/PropertyParser.cpp
     src/Parsing/ReferenceParser.cpp
+    src/Parsing/AnnotationValidator.cpp
 )
 target_link_libraries(dsannotation_parsing
     PUBLIC

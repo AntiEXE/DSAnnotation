@@ -3,17 +3,17 @@
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 
-#include "DSAnnotation/Config/ParserConfig.h"
-#include "DSAnnotation/Core/ErrorCollector.h"
-#include "DSAnnotation/Parsing/ASTVisitor.h"
-#include "DSAnnotation/Parsing/ComponentParser.h"
-#include "DSAnnotation/Parsing/PropertyParser.h"
-#include "DSAnnotation/Parsing/ReferenceParser.h"
-#include "DSAnnotation/Serialization/JsonManifestBuilder.h"
-#include "DSAnnotation/Serialization/JsonManifestWriter.h"
-#include "DSAnnotation/Serialization/ManifestMerger.h"
-#include "DSAnnotation/Support/ErrorReporter.h"
-#include "DSAnnotation/Support/LocalFileSystem.h"
+#include "dsannotation/config/ParserConfig.h"
+#include "dsannotation/core/ErrorCollector.h"
+#include "dsannotation/parsing/ASTVisitor.h"
+#include "dsannotation/parsing/ComponentParser.h"
+#include "dsannotation/parsing/PropertyParser.h"
+#include "dsannotation/parsing/ReferenceParser.h"
+#include "dsannotation/serialization/JsonManifestBuilder.h"
+#include "dsannotation/serialization/JsonManifestWriter.h"
+#include "dsannotation/serialization/ManifestMerger.h"
+#include "dsannotation/support/ErrorReporter.h"
+#include "dsannotation/support/LocalFileSystem.h"
 
 #include <memory>
 #include <utility>

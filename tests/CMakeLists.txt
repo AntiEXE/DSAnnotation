@@ -1,15 +1,19 @@
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
+find_package(LLVM REQUIRED CONFIG)
+find_package(Clang REQUIRED CONFIG)
 
 add_executable(unit_tests
     PropertyParserTest.cpp
-    # ComponentParserTest.cpp
+    ComponentParserTest.cpp
     # Add other test files here
 )
 
 target_include_directories(unit_tests
     PRIVATE
     ${CMAKE_SOURCE_DIR}
+    ${LLVM_INCLUDE_DIRS}
+    ${CLANG_INCLUDE_DIRS}
 )
 
 # Modern CMake targets (if available)

@@ -12,9 +12,9 @@ find_package(GTest CONFIG REQUIRED)
 set(DSANNOTATION_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_library(dsannotation_core
-    src/Core/Component.cpp
-    src/Core/ErrorCollector.cpp
-    src/Core/Reference.cpp
+    src/core/Component.cpp
+    src/core/ErrorCollector.cpp
+    src/core/Reference.cpp
 )
 target_include_directories(dsannotation_core
     PUBLIC
@@ -26,8 +26,8 @@ target_include_directories(dsannotation_core
 )
 
 add_library(dsannotation_support
-    src/Support/ErrorReporter.cpp
-    src/Support/LocalFileSystem.cpp
+    src/support/ErrorReporter.cpp
+    src/support/LocalFileSystem.cpp
 )
 target_link_libraries(dsannotation_support
     PUBLIC
@@ -41,11 +41,11 @@ target_include_directories(dsannotation_support
 )
 
 add_library(dsannotation_parsing
-    src/Parsing/ASTVisitor.cpp
-    src/Parsing/ComponentParser.cpp
-    src/Parsing/PropertyParser.cpp
-    src/Parsing/ReferenceParser.cpp
-    src/Parsing/AnnotationValidator.cpp
+    src/parsing/ASTVisitor.cpp
+    src/parsing/ComponentParser.cpp
+    src/parsing/PropertyParser.cpp
+    src/parsing/ReferenceParser.cpp
+    src/parsing/AnnotationValidator.cpp
 )
 target_link_libraries(dsannotation_parsing
     PUBLIC
@@ -62,9 +62,9 @@ target_include_directories(dsannotation_parsing
 )
 
 add_library(dsannotation_serialization
-    src/Serialization/JsonManifestBuilder.cpp
-    src/Serialization/JsonManifestWriter.cpp
-    src/Serialization/ManifestMerger.cpp
+    src/serialization/JsonManifestBuilder.cpp
+    src/serialization/JsonManifestWriter.cpp
+    src/serialization/ManifestMerger.cpp
 )
 target_link_libraries(dsannotation_serialization
     PUBLIC

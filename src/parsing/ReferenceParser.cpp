@@ -1,4 +1,4 @@
-#include "DSAnnotation/Parsing/ReferenceParser.h"
+#include "dsannotation/parsing/ReferenceParser.h"
 
 #include <cctype>
 #include <regex>

@@ -1,4 +1,4 @@
-#include "DSAnnotation/Serialization/JsonManifestBuilder.h"
+#include "dsannotation/serialization/JsonManifestBuilder.h"
 
 namespace dsannotation::serialization {
 

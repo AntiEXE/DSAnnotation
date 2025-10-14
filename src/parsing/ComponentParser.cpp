@@ -1,5 +1,5 @@
-#include "DSAnnotation/Parsing/ComponentParser.h"
-#include "DSAnnotation/Parsing/AnnotationValidator.h"
+#include "dsannotation/parsing/ComponentParser.h"
+#include "dsannotation/parsing/AnnotationValidator.h"
 
 #include <utility>
 

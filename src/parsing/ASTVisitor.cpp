@@ -1,4 +1,4 @@
-#include "DSAnnotation/Parsing/ASTVisitor.h"
+#include "dsannotation/parsing/ASTVisitor.h"
 
 namespace dsannotation::parsing {
 

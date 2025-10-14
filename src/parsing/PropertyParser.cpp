@@ -1,4 +1,4 @@
-#include "DSAnnotation/Parsing/PropertyParser.h"
+#include "dsannotation/parsing/PropertyParser.h"
 
 #include <algorithm>
 #include <cctype>

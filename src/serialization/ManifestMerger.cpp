@@ -1,4 +1,4 @@
-#include "DSAnnotation/Serialization/ManifestMerger.h"
+#include "dsannotation/serialization/ManifestMerger.h"
 
 namespace dsannotation::serialization {
 

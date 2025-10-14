@@ -1,4 +1,4 @@
-#include "DSAnnotation/Core/ErrorCollector.h"
+#include "dsannotation/core/ErrorCollector.h"
 
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"

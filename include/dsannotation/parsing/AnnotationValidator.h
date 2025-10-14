@@ -1,8 +1,8 @@
 #pragma once
 
-#include "DSAnnotation/Parsing/AnnotationTypes.h"
-#include "DSAnnotation/Support/SourceLocationInfo.h"
-#include "DSAnnotation/Core/Error.h"
+#include "dsannotation/parsing/AnnotationTypes.h"
+#include "dsannotation/support/SourceLocationInfo.h"
+#include "dsannotation/core/Error.h"
 #include <string>
 #include <vector>
 #include <regex>

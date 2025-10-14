@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DSAnnotation/Parsing/IPropertyParser.h"
+#include "dsannotation/parsing/IPropertyParser.h"
 
 namespace dsannotation::parsing {
 

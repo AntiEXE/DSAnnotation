@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DSAnnotation/Core/Component.h"
+#include "dsannotation/core/Component.h"
 
 namespace clang {
 class ASTContext;

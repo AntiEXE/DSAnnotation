@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "DSAnnotation/Parsing/PropertyParser.h"
+#include "dsannotation/parsing/PropertyParser.h"
 #include "nlohmann/json.hpp"
 
 class PropertyParserTest : public ::testing::Test {

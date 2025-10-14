@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DSAnnotation/Serialization/IManifestBuilder.h"
+#include "dsannotation/serialization/IManifestBuilder.h"
 
 namespace dsannotation::serialization {
 

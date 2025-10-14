@@ -2,8 +2,8 @@
 
 #include <string>
 #include <vector>
-#include "DSAnnotation/Parsing/AnnotationTypes.h"
-#include "DSAnnotation/Support/SourceLocationInfo.h"
+#include "dsannotation/parsing/AnnotationTypes.h"
+#include "dsannotation/support/SourceLocationInfo.h"
 
 namespace dsannotation::parsing {
 

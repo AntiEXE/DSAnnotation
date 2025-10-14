@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "DSAnnotation/Core/Component.h"
-#include "DSAnnotation/Core/Result.h"
+#include "dsannotation/core/Component.h"
+#include "dsannotation/core/Result.h"
 
 namespace dsannotation::serialization {
 

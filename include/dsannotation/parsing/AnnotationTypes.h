@@ -4,8 +4,8 @@
 #include <vector>
 #include <optional>
 #include "nlohmann/json.hpp"
-#include "DSAnnotation/Support/SourceLocationInfo.h"
-#include "DSAnnotation/Core/Error.h"
+#include "dsannotation/support/SourceLocationInfo.h"
+#include "dsannotation/core/Error.h"
 
 namespace dsannotation::parsing {
 

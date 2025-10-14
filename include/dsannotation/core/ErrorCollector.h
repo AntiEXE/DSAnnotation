@@ -8,8 +8,8 @@ class SourceLocation;
 class SourceManager;
 }
 
-#include "DSAnnotation/Core/Error.h"
-#include "DSAnnotation/Support/SourceLocationInfo.h"
+#include "dsannotation/core/Error.h"
+#include "dsannotation/support/SourceLocationInfo.h"
 
 namespace dsannotation::core {
 

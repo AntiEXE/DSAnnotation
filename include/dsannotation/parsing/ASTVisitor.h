@@ -6,8 +6,8 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 
-#include "DSAnnotation/Core/Component.h"
-#include "DSAnnotation/Parsing/IComponentParser.h"
+#include "dsannotation/core/Component.h"
+#include "dsannotation/parsing/IComponentParser.h"
 
 namespace dsannotation::parsing {
 

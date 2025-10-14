@@ -1,9 +1,9 @@
 #pragma once
 
-#include "DSAnnotation/Serialization/IManifestBuilder.h"
-#include "DSAnnotation/Serialization/IManifestMerger.h"
-#include "DSAnnotation/Serialization/IManifestWriter.h"
-#include "DSAnnotation/Support/IFileSystem.h"
+#include "dsannotation/serialization/IManifestBuilder.h"
+#include "dsannotation/serialization/IManifestMerger.h"
+#include "dsannotation/serialization/IManifestWriter.h"
+#include "dsannotation/support/IFileSystem.h"
 
 namespace dsannotation::serialization {
 

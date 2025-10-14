@@ -2,13 +2,13 @@
 
 #include <string>
 
-#include "DSAnnotation/Config/ParserConfig.h"
-#include "DSAnnotation/Core/Component.h"
-#include "DSAnnotation/Core/ErrorCollector.h"
-#include "DSAnnotation/Parsing/IComponentParser.h"
-#include "DSAnnotation/Parsing/IPropertyParser.h"
-#include "DSAnnotation/Parsing/IReferenceParser.h"
-#include "DSAnnotation/Support/IFileSystem.h"
+#include "dsannotation/config/ParserConfig.h"
+#include "dsannotation/core/Component.h"
+#include "dsannotation/core/ErrorCollector.h"
+#include "dsannotation/parsing/IComponentParser.h"
+#include "dsannotation/parsing/IPropertyParser.h"
+#include "dsannotation/parsing/IReferenceParser.h"
+#include "dsannotation/support/IFileSystem.h"
 
 namespace clang {
 class ASTContext;

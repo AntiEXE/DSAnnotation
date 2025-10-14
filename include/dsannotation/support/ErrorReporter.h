@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "DSAnnotation/Core/ErrorCollector.h"
+#include "dsannotation/core/ErrorCollector.h"
 
 namespace dsannotation::support {
 

@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "DSAnnotation/Serialization/IManifestMerger.h"
-#include "DSAnnotation/Support/IFileSystem.h"
+#include "dsannotation/serialization/IManifestMerger.h"
+#include "dsannotation/support/IFileSystem.h"
 
 namespace dsannotation::serialization {
 

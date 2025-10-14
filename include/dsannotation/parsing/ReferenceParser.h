@@ -3,8 +3,8 @@
 #include <regex>
 #include <string>
 
-#include "DSAnnotation/Parsing/IReferenceParser.h"
-#include "DSAnnotation/Parsing/IPropertyParser.h"
+#include "dsannotation/parsing/IReferenceParser.h"
+#include "dsannotation/parsing/IPropertyParser.h"
 
 namespace dsannotation::parsing {
 

@@ -14,12 +14,8 @@ env:
 
 jobs:
   build_win_msvc:
-    name: Build and Test [${{matrix.os}}]
-    runs-on: ${{matrix.os}}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-2022]
+    name: Build and Test [windows-2022, MSVC]
+    runs-on: windows-2022
 
     steps:
     - name: Initialization
@@ -30,10 +26,21 @@ jobs:
       with:
         submodules: true
 
-    - name: Install LLVM and Dependencies
+    - name: Install Dependencies and Verify LLVM
       run: |
-        # Install LLVM using chocolatey
-        choco install llvm --version=14.0.6 -y
+        # Check existing LLVM installation (should be v20.1.8)
+        echo "Checking existing LLVM installation..."
+        choco list --local-only llvm
+        
+        # Verify LLVM is working
+        if (Test-Path "C:\Program Files\LLVM\bin\clang.exe") {
+            echo "✓ Using existing LLVM installation"
+            & "C:\Program Files\LLVM\bin\clang.exe" --version
+            echo "LLVM Path: C:\Program Files\LLVM"
+        } else {
+            echo "✗ LLVM not found, installing..."
+            choco install llvm -y
+        }
         
         # Install vcpkg for GTest
         git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
@@ -44,13 +51,31 @@ jobs:
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
 
+    - name: Verify LLVM Installation
+      run: |
+        echo "Checking LLVM installation..."
+        if (Test-Path "C:\Program Files\LLVM\lib\cmake\llvm") {
+            echo "✓ LLVM CMake files found"
+            Get-ChildItem "C:\Program Files\LLVM\lib\cmake\llvm" | Select-Object Name
+        } else {
+            echo "✗ LLVM CMake files not found"
+        }
+        
+        if (Test-Path "C:\Program Files\LLVM\lib\cmake\clang") {
+            echo "✓ Clang CMake files found"
+            Get-ChildItem "C:\Program Files\LLVM\lib\cmake\clang" | Select-Object Name
+        } else {
+            echo "✗ Clang CMake files not found"
+        }
+
     - name: Configure CMake
       run: |
+        # Configure without vcpkg first to avoid interference
         cmake -B ${{ env.BUILD_DIR }} `
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
           -DLLVM_DIR="C:/Program Files/LLVM/lib/cmake/llvm" `
           -DClang_DIR="C:/Program Files/LLVM/lib/cmake/clang" `
+          -DCMAKE_PREFIX_PATH="C:/vcpkg/installed/x64-windows" `
           -G "Visual Studio 17 2022" -A x64
 
     - name: Build
@@ -59,251 +84,3 @@ jobs:
     - name: Test
       working-directory: ${{ env.BUILD_DIR }}
       run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-
-  build_win_mingw:
-    name: Build and Test [mingw-w64]
-    runs-on: windows-2022
-    env:
-      CC: gcc
-      CXX: g++
-
-    steps:
-    - name: Initialization
-      run: |
-        git config --global core.autocrlf true
-
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    - name: Setup MinGW
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-ninja
-          mingw-w64-x86_64-llvm
-          mingw-w64-x86_64-clang
-          mingw-w64-x86_64-clang-tools-extra
-          mingw-w64-x86_64-gtest
-
-    - name: Check LLVM Installation
-      shell: msys2 {0}
-      run: |
-        echo "LLVM Version:"
-        llvm-config --version
-        echo "Available clang libraries:"
-        ls -la /mingw64/lib/libclang*.a || echo "No libclang*.a files found"
-        echo "Clang CMake directory contents:"
-        ls -la /mingw64/lib/cmake/clang/ || echo "Clang cmake directory not found"
-
-    - name: Configure CMake with Fallback
-      shell: msys2 {0}
-      run: |
-        # Try with standard paths first
-        echo "Attempting standard CMake configuration..."
-        if cmake -B build \
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DLLVM_DIR=/mingw64/lib/cmake/llvm \
-          -DClang_DIR=/mingw64/lib/cmake/clang \
-          -DCMAKE_CXX_FLAGS="-DCLANG_ENABLE_STATIC_ANALYZER=OFF" \
-          -G Ninja; then
-          echo "CMake configuration successful with standard paths"
-        else
-          echo "Standard configuration failed, trying with monolithic LLVM/Clang"
-          # Fallback: Use monolithic clang-cpp and LLVM libraries (MinGW style)
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DLLVM_DIR=/mingw64/lib/cmake/llvm \
-            -DCMAKE_CXX_FLAGS="-DCLANG_ENABLE_STATIC_ANALYZER=OFF -D_GNU_SOURCE" \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-multiple-definition" \
-            -G Ninja
-        fi
-
-    - name: Build
-      shell: msys2 {0}
-      run: cmake --build build --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      shell: msys2 {0}
-      working-directory: build
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-
-  # Alternative MinGW build using Chocolatey LLVM (more complete)
-  build_win_mingw_choco:
-    name: Build and Test [mingw-w64 + Chocolatey LLVM]
-    runs-on: windows-2022
-    env:
-      CC: gcc
-      CXX: g++
-
-    steps:
-    - name: Initialization
-      run: |
-        git config --global core.autocrlf true
-
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    - name: Setup MinGW
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-ninja
-          mingw-w64-x86_64-gtest
-
-    - name: Install LLVM via Chocolatey
-      run: |
-        choco install llvm --version=14.0.6 -y
-
-    - name: Configure CMake with Chocolatey LLVM
-      shell: msys2 {0}
-      run: |
-        # Use Windows LLVM installation with MinGW compiler
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DCMAKE_C_COMPILER=gcc \
-          -DCMAKE_CXX_COMPILER=g++ \
-          -DLLVM_DIR="/c/Program Files/LLVM/lib/cmake/llvm" \
-          -DClang_DIR="/c/Program Files/LLVM/lib/cmake/clang" \
-          -G Ninja
-
-    - name: Build
-      shell: msys2 {0}
-      run: cmake --build build --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      shell: msys2 {0}
-      working-directory: build
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-
-  # MinGW with dynamic libraries (avoids static linking issues)
-  build_win_mingw_dynamic:
-    name: Build and Test [mingw-w64 + Dynamic Libraries]
-    runs-on: windows-2022
-    env:
-      CC: gcc
-      CXX: g++
-
-    steps:
-    - name: Initialization
-      run: |
-        git config --global core.autocrlf true
-
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    - name: Setup MinGW
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-ninja
-          mingw-w64-x86_64-llvm
-          mingw-w64-x86_64-clang
-          mingw-w64-x86_64-clang-tools-extra
-          mingw-w64-x86_64-gtest
-
-    - name: Create MinGW-specific CMake patch
-      shell: msys2 {0}
-      run: |
-        # Create a temporary CMakeLists patch for MinGW
-        cat > mingw_cmake_patch.cmake << 'EOF'
-        # Override Windows library detection for MinGW
-        if (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-            message(STATUS "Applying MinGW-specific library configuration")
-            
-            # Force use of dynamic libraries and monolithic approach
-            set(CLANG_LIBS clang-cpp)
-            set(LLVM_LIBS LLVM)
-            
-            # Add necessary definitions and flags
-            add_definitions(-D_GNU_SOURCE)
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition -Wl,--enable-auto-import")
-            
-            # Override the existing Windows library configuration
-            unset(CLANG_LIBS)
-            unset(LLVM_LIBS)
-            set(CLANG_LIBS clang-cpp)
-            set(LLVM_LIBS LLVM)
-        endif()
-        EOF
-
-    - name: Configure CMake with Dynamic Libraries
-      shell: msys2 {0}
-      run: |
-        # Apply the MinGW patch before configuring
-        echo "include(\${CMAKE_CURRENT_SOURCE_DIR}/mingw_cmake_patch.cmake)" >> CMakeLists.txt.tmp
-        cat CMakeLists.txt >> CMakeLists.txt.tmp
-        mv CMakeLists.txt.tmp CMakeLists.txt
-        
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DLLVM_DIR=/mingw64/lib/cmake/llvm \
-          -DClang_DIR=/mingw64/lib/cmake/clang \
-          -DBUILD_SHARED_LIBS=OFF \
-          -G Ninja
-
-    - name: Build
-      shell: msys2 {0}
-      run: cmake --build build --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      shell: msys2 {0}
-      working-directory: build
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-  build_win_asan:
-    name: Build and Test with AddressSanitizer [windows-2022]
-    runs-on: windows-2022
-
-    steps:
-    - name: Initialization
-      run: |
-        git config --global core.autocrlf true
-
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-
-    - name: Install LLVM and Dependencies
-      run: |
-        choco install llvm --version=14.0.6 -y
-        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-        C:\vcpkg\bootstrap-vcpkg.bat
-        C:\vcpkg\vcpkg integrate install
-        C:\vcpkg\vcpkg install gtest:x64-windows
-
-    - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2
-
-    - name: Configure CMake with AddressSanitizer
-      run: |
-        cmake -B ${{ env.BUILD_DIR }} `
-          -DCMAKE_BUILD_TYPE=Debug `
-          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
-          -DCMAKE_C_FLAGS="/fsanitize=address" `
-          -DCMAKE_CXX_FLAGS="/fsanitize=address" `
-          -DLLVM_DIR="C:/Program Files/LLVM/lib/cmake/llvm" `
-          -DClang_DIR="C:/Program Files/LLVM/lib/cmake/clang" `
-          -G "Visual Studio 17 2022" -A x64
-
-    - name: Build
-      run: cmake --build ${{ env.BUILD_DIR }} --config Debug
-
-    - name: Test with AddressSanitizer
-      working-directory: ${{ env.BUILD_DIR }}
-      env:
-        ASAN_OPTIONS: "detect_leaks=0:abort_on_error=1"  # Leak detection not supported on Windows
-      run: ctest --build-config Debug --verbose

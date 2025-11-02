@@ -1,0 +1,153 @@
+name: BuildAndTestWindows
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  BUILD_DIR: ${{github.workspace}}/build
+
+jobs:
+  build_win_msvc:
+    name: Build and Test [${{matrix.os}}]
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022]
+
+    steps:
+    - name: Initialization
+      run: |
+        git config --global core.autocrlf true
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Install LLVM and Dependencies
+      run: |
+        # Install LLVM using chocolatey
+        choco install llvm --version=14.0.6 -y
+        
+        # Install vcpkg for GTest
+        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        C:\vcpkg\bootstrap-vcpkg.bat
+        C:\vcpkg\vcpkg integrate install
+        C:\vcpkg\vcpkg install gtest:x64-windows
+
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Configure CMake
+      run: |
+        cmake -B ${{ env.BUILD_DIR }} `
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DLLVM_DIR="C:/Program Files/LLVM/lib/cmake/llvm" `
+          -DClang_DIR="C:/Program Files/LLVM/lib/cmake/clang" `
+          -G "Visual Studio 17 2022" -A x64
+
+    - name: Build
+      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
+
+    - name: Test
+      working-directory: ${{ env.BUILD_DIR }}
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
+
+  build_win_mingw:
+    name: Build and Test [mingw-w64]
+    runs-on: windows-2022
+    env:
+      CC: gcc
+      CXX: g++
+
+    steps:
+    - name: Initialization
+      run: |
+        git config --global core.autocrlf true
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Setup MinGW
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-llvm
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-gtest
+
+    - name: Configure CMake
+      shell: msys2 {0}
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DLLVM_DIR=/mingw64/lib/cmake/llvm \
+          -DClang_DIR=/mingw64/lib/cmake/clang \
+          -G Ninja
+
+    - name: Build
+      shell: msys2 {0}
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+    - name: Test
+      shell: msys2 {0}
+      working-directory: build
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
+
+  # Basic sanitizer support for Windows (limited compared to Linux)
+  build_win_asan:
+    name: Build and Test with AddressSanitizer [windows-2022]
+    runs-on: windows-2022
+
+    steps:
+    - name: Initialization
+      run: |
+        git config --global core.autocrlf true
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Install LLVM and Dependencies
+      run: |
+        choco install llvm --version=14.0.6 -y
+        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        C:\vcpkg\bootstrap-vcpkg.bat
+        C:\vcpkg\vcpkg integrate install
+        C:\vcpkg\vcpkg install gtest:x64-windows
+
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Configure CMake with AddressSanitizer
+      run: |
+        cmake -B ${{ env.BUILD_DIR }} `
+          -DCMAKE_BUILD_TYPE=Debug `
+          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DCMAKE_C_FLAGS="/fsanitize=address" `
+          -DCMAKE_CXX_FLAGS="/fsanitize=address" `
+          -DLLVM_DIR="C:/Program Files/LLVM/lib/cmake/llvm" `
+          -DClang_DIR="C:/Program Files/LLVM/lib/cmake/clang" `
+          -G "Visual Studio 17 2022" -A x64
+
+    - name: Build
+      run: cmake --build ${{ env.BUILD_DIR }} --config Debug
+
+    - name: Test with AddressSanitizer
+      working-directory: ${{ env.BUILD_DIR }}
+      env:
+        ASAN_OPTIONS: "detect_leaks=0:abort_on_error=1"  # Leak detection not supported on Windows
+      run: ctest --build-config Debug --verbose

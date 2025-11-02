@@ -104,21 +104,23 @@ jobs:
       shell: msys2 {0}
       run: |
         # Try with standard paths first
+        echo "Attempting standard CMake configuration..."
         if cmake -B build \
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
           -DLLVM_DIR=/mingw64/lib/cmake/llvm \
           -DClang_DIR=/mingw64/lib/cmake/clang \
+          -DCMAKE_CXX_FLAGS="-DCLANG_ENABLE_STATIC_ANALYZER=OFF" \
           -G Ninja; then
           echo "CMake configuration successful with standard paths"
         else
-          echo "Standard configuration failed, trying with LLVM-only"
-          # Fallback: Use only LLVM, skip full Clang package requirements
+          echo "Standard configuration failed, trying with monolithic LLVM/Clang"
+          # Fallback: Use monolithic clang-cpp and LLVM libraries (MinGW style)
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DLLVM_DIR=/mingw64/lib/cmake/llvm \
-            -G Ninja \
-            -DCMAKE_CXX_FLAGS="-I/mingw64/include" \
-            -DCMAKE_EXE_LINKER_FLAGS="-L/mingw64/lib -lclang"
+            -DCMAKE_CXX_FLAGS="-DCLANG_ENABLE_STATIC_ANALYZER=OFF -D_GNU_SOURCE" \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-multiple-definition" \
+            -G Ninja
         fi
 
     - name: Build
@@ -183,7 +185,85 @@ jobs:
       working-directory: build
       run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
 
-  # Basic sanitizer support for Windows (limited compared to Linux)
+  # MinGW with dynamic libraries (avoids static linking issues)
+  build_win_mingw_dynamic:
+    name: Build and Test [mingw-w64 + Dynamic Libraries]
+    runs-on: windows-2022
+    env:
+      CC: gcc
+      CXX: g++
+
+    steps:
+    - name: Initialization
+      run: |
+        git config --global core.autocrlf true
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Setup MinGW
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-llvm
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-clang-tools-extra
+          mingw-w64-x86_64-gtest
+
+    - name: Create MinGW-specific CMake patch
+      shell: msys2 {0}
+      run: |
+        # Create a temporary CMakeLists patch for MinGW
+        cat > mingw_cmake_patch.cmake << 'EOF'
+        # Override Windows library detection for MinGW
+        if (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            message(STATUS "Applying MinGW-specific library configuration")
+            
+            # Force use of dynamic libraries and monolithic approach
+            set(CLANG_LIBS clang-cpp)
+            set(LLVM_LIBS LLVM)
+            
+            # Add necessary definitions and flags
+            add_definitions(-D_GNU_SOURCE)
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition -Wl,--enable-auto-import")
+            
+            # Override the existing Windows library configuration
+            unset(CLANG_LIBS)
+            unset(LLVM_LIBS)
+            set(CLANG_LIBS clang-cpp)
+            set(LLVM_LIBS LLVM)
+        endif()
+        EOF
+
+    - name: Configure CMake with Dynamic Libraries
+      shell: msys2 {0}
+      run: |
+        # Apply the MinGW patch before configuring
+        echo "include(\${CMAKE_CURRENT_SOURCE_DIR}/mingw_cmake_patch.cmake)" >> CMakeLists.txt.tmp
+        cat CMakeLists.txt >> CMakeLists.txt.tmp
+        mv CMakeLists.txt.tmp CMakeLists.txt
+        
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DLLVM_DIR=/mingw64/lib/cmake/llvm \
+          -DClang_DIR=/mingw64/lib/cmake/clang \
+          -DBUILD_SHARED_LIBS=OFF \
+          -G Ninja
+
+    - name: Build
+      shell: msys2 {0}
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+    - name: Test
+      shell: msys2 {0}
+      working-directory: build
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
   build_win_asan:
     name: Build and Test with AddressSanitizer [windows-2022]
     runs-on: windows-2022

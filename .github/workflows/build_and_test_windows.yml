@@ -87,15 +87,91 @@ jobs:
           mingw-w64-x86_64-ninja
           mingw-w64-x86_64-llvm
           mingw-w64-x86_64-clang
+          mingw-w64-x86_64-clang-tools-extra
           mingw-w64-x86_64-gtest
 
-    - name: Configure CMake
+    - name: Check LLVM Installation
       shell: msys2 {0}
       run: |
-        cmake -B build \
+        echo "LLVM Version:"
+        llvm-config --version
+        echo "Available clang libraries:"
+        ls -la /mingw64/lib/libclang*.a || echo "No libclang*.a files found"
+        echo "Clang CMake directory contents:"
+        ls -la /mingw64/lib/cmake/clang/ || echo "Clang cmake directory not found"
+
+    - name: Configure CMake with Fallback
+      shell: msys2 {0}
+      run: |
+        # Try with standard paths first
+        if cmake -B build \
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
           -DLLVM_DIR=/mingw64/lib/cmake/llvm \
           -DClang_DIR=/mingw64/lib/cmake/clang \
+          -G Ninja; then
+          echo "CMake configuration successful with standard paths"
+        else
+          echo "Standard configuration failed, trying with LLVM-only"
+          # Fallback: Use only LLVM, skip full Clang package requirements
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DLLVM_DIR=/mingw64/lib/cmake/llvm \
+            -G Ninja \
+            -DCMAKE_CXX_FLAGS="-I/mingw64/include" \
+            -DCMAKE_EXE_LINKER_FLAGS="-L/mingw64/lib -lclang"
+        fi
+
+    - name: Build
+      shell: msys2 {0}
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+    - name: Test
+      shell: msys2 {0}
+      working-directory: build
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
+
+  # Alternative MinGW build using Chocolatey LLVM (more complete)
+  build_win_mingw_choco:
+    name: Build and Test [mingw-w64 + Chocolatey LLVM]
+    runs-on: windows-2022
+    env:
+      CC: gcc
+      CXX: g++
+
+    steps:
+    - name: Initialization
+      run: |
+        git config --global core.autocrlf true
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Setup MinGW
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-gtest
+
+    - name: Install LLVM via Chocolatey
+      run: |
+        choco install llvm --version=14.0.6 -y
+
+    - name: Configure CMake with Chocolatey LLVM
+      shell: msys2 {0}
+      run: |
+        # Use Windows LLVM installation with MinGW compiler
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DLLVM_DIR="/c/Program Files/LLVM/lib/cmake/llvm" \
+          -DClang_DIR="/c/Program Files/LLVM/lib/cmake/clang" \
           -G Ninja
 
     - name: Build

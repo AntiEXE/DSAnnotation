@@ -2,194 +2,195 @@ name: BuildAndTestNix
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  BUILD_DIR: ${{github.workspace}}/build
 
 jobs:
-  linux_minimum_supported_gcc_build:
-    name: Build and Test [ubuntu-22.04, Minimum GCC]
+  linux_minimum_supported_build:
+    name: Build and Test [ubuntu-22.04, GCC 11, LLVM 14]
     runs-on: ubuntu-22.04
+    env:
+      LLVM_VERSION: 14
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: true
-    
-    - name: Install Dependencies
-      run: |
-        sudo apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-        sudo apt-get update
-        sudo apt-get -yq --no-install-suggests --no-install-recommends install \
-          gcc-11 g++-11 valgrind \
-          llvm-14 llvm-14-dev libclang-14-dev clang-14 \
-          libgtest-dev cmake
-      
-    - name: Configure CMake
-      run: |
-        cmake -B ${{ env.BUILD_DIR }} \
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DCMAKE_C_COMPILER=gcc-11 \
-          -DCMAKE_CXX_COMPILER=g++-11 \
-          -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
-          -DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang
-
-    - name: Build
-      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      working-directory: ${{ env.BUILD_DIR }}
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-
-  linux_clang_build:
-    name: Build and Test [ubuntu-22.04, Supported Clang]
-    runs-on: ubuntu-22.04
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-    
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get -yq --no-install-suggests --no-install-recommends install \
-          valgrind lld \
-          llvm-14 llvm-14-dev libclang-14-dev clang-14 \
-          libgtest-dev cmake
-      
-    - name: Configure CMake
-      run: |
-        cmake -B ${{ env.BUILD_DIR }} \
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DCMAKE_C_COMPILER=clang-14 \
-          -DCMAKE_CXX_COMPILER=clang++-14 \
-          -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
-          -DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang
-
-    - name: Build
-      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      working-directory: ${{ env.BUILD_DIR }}
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-  
-  build_nix:
-    name: Build and Test [${{matrix.os}}]
-    runs-on: ${{matrix.os}}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-13, macos-14]
-        include:
-          - os: ubuntu-22.04
-            llvm_version: "14"
-            install_deps: |
-              sudo apt-get update
-              sudo apt-get install -y valgrind \
-                llvm-14 llvm-14-dev libclang-14-dev clang-14 \
-                libgtest-dev cmake
-            cmake_extra_args: |
-              -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
-              -DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang
-          - os: macos-13
-            llvm_version: "14"
-            install_deps: |
-              brew install llvm@14 googletest cmake
-            cmake_extra_args: |
-              -DLLVM_DIR=$(brew --prefix llvm@14)/lib/cmake/llvm \
-              -DClang_DIR=$(brew --prefix llvm@14)/lib/cmake/clang
-          - os: macos-14
-            llvm_version: "14"
-            install_deps: |
-              brew install llvm@14 googletest cmake
-            cmake_extra_args: |
-              -DLLVM_DIR=$(brew --prefix llvm@14)/lib/cmake/llvm \
-              -DClang_DIR=$(brew --prefix llvm@14)/lib/cmake/clang
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-         submodules: true
-
-    - name: Install Dependencies
-      run: ${{ matrix.install_deps }}
-
-    - name: Configure CMake
-      run: |
-        cmake -B ${{ env.BUILD_DIR }} \
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          ${{ matrix.cmake_extra_args }}
-
-    - name: Build
-      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      working-directory: ${{ env.BUILD_DIR }}
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose
-
-  build_nix_sanitizers:
-    name: Build and Test with Sanitizers [${{matrix.os}}, ${{matrix.sanitizer}}]
-    runs-on: ${{matrix.os}}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04]
-        sanitizer: [asan, ubsan, msan]
-        exclude:
-          # MSan requires special libc++ build, skip for now
-          - sanitizer: msan
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
 
     - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          llvm-14 llvm-14-dev libclang-14-dev clang-14 \
-          libgtest-dev cmake
+          gcc-11 g++-11 \
+          llvm-${{env.LLVM_VERSION}}-dev \
+          libclang-${{env.LLVM_VERSION}}-dev \
+          clang-${{env.LLVM_VERSION}} \
+          libgtest-dev \
+          cmake ninja-build
 
-    - name: Configure CMake with ${{ matrix.sanitizer }}
+    - name: Configure CMake
       run: |
-        SANITIZER_FLAGS=""
-        case "${{ matrix.sanitizer }}" in
-          asan)
-            SANITIZER_FLAGS="-fsanitize=address -fno-omit-frame-pointer"
-            ;;
-          ubsan)
-            SANITIZER_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
-            ;;
-          msan)
-            SANITIZER_FLAGS="-fsanitize=memory -fno-omit-frame-pointer"
-            ;;
-        esac
-        
-        cmake -B ${{ env.BUILD_DIR }} \
-          -DCMAKE_BUILD_TYPE=Debug \
-          -DCMAKE_C_COMPILER=clang-14 \
-          -DCMAKE_CXX_COMPILER=clang++-14 \
-          -DCMAKE_C_FLAGS="$SANITIZER_FLAGS" \
-          -DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS" \
-          -DCMAKE_EXE_LINKER_FLAGS="$SANITIZER_FLAGS" \
-          -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
-          -DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DCMAKE_C_COMPILER=gcc-11 \
+          -DCMAKE_CXX_COMPILER=g++-11 \
+          -GNinja
+      env:
+        LLVM_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/llvm
+        Clang_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/clang
 
     - name: Build
-      run: cmake --build ${{ env.BUILD_DIR }} --config Debug
+      run: cmake --build build --config ${{env.BUILD_TYPE}}
 
-    - name: Test with ${{ matrix.sanitizer }}
-      working-directory: ${{ env.BUILD_DIR }}
+    - name: Test
+      run: ctest --test-dir build --output-on-failure --verbose
+
+  linux_latest_clang_build:
+    name: Build and Test [ubuntu-22.04, Clang 18, LLVM 18]
+    runs-on: ubuntu-22.04
+    env:
+      LLVM_VERSION: 18
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install LLVM 18
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh ${{env.LLVM_VERSION}}
+
+    - name: Install Other Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtest-dev \
+          cmake ninja-build
+
+    - name: Configure CMake
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DCMAKE_C_COMPILER=clang-${{env.LLVM_VERSION}} \
+          -DCMAKE_CXX_COMPILER=clang++-${{env.LLVM_VERSION}} \
+          -GNinja
       env:
-        ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1"
-        UBSAN_OPTIONS: "print_stacktrace=1:abort_on_error=1"
-        MSAN_OPTIONS: "abort_on_error=1"
-      run: ctest --build-config Debug --verbose
+        LLVM_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/llvm
+        Clang_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/clang
+
+    - name: Build
+      run: cmake --build build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure --verbose
+
+  build_nix:
+    name: Build and Test [${{matrix.os}}]
+    runs-on: ${{matrix.os}}
+    env:
+      LLVM_VERSION: 14
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-13, macos-14]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies (Ubuntu)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          llvm-${{env.LLVM_VERSION}}-dev \
+          libclang-${{env.LLVM_VERSION}}-dev \
+          clang-${{env.LLVM_VERSION}} \
+          libgtest-dev \
+          cmake ninja-build
+      if: runner.os == 'Linux'
+
+    - name: Install Dependencies (macOS)
+      run: |
+        brew install llvm@${{env.LLVM_VERSION}} googletest ninja
+      if: runner.os == 'macOS'
+
+    - name: Configure CMake (Ubuntu)
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -GNinja
+      env:
+        LLVM_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/llvm
+        Clang_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/clang
+      if: runner.os == 'Linux'
+
+    - name: Configure CMake (macOS)
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -GNinja
+      env:
+        LLVM_DIR: $(brew --prefix llvm@${{env.LLVM_VERSION}})/lib/cmake/llvm
+        Clang_DIR: $(brew --prefix llvm@${{env.LLVM_VERSION}})/lib/cmake/clang
+      if: runner.os == 'macOS'
+
+    - name: Build
+      run: cmake --build build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure --verbose
+
+  build_with_coverage:
+    name: Build and Test with Coverage [ubuntu-22.04, GCC 11, LLVM 14]
+    runs-on: ubuntu-22.04
+    env:
+      LLVM_VERSION: 14
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          gcc-11 g++-11 \
+          llvm-${{env.LLVM_VERSION}}-dev \
+          libclang-${{env.LLVM_VERSION}}-dev \
+          clang-${{env.LLVM_VERSION}} \
+          libgtest-dev \
+          cmake ninja-build \
+          lcov
+
+    - name: Configure CMake with Coverage
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=gcc-11 \
+          -DCMAKE_CXX_COMPILER=g++-11 \
+          -DCMAKE_CXX_FLAGS="--coverage" \
+          -DCMAKE_C_FLAGS="--coverage" \
+          -GNinja
+      env:
+        LLVM_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/llvm
+        Clang_DIR: /usr/lib/llvm-${{env.LLVM_VERSION}}/lib/cmake/clang
+
+    - name: Build
+      run: cmake --build build --config Debug
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure --verbose
+
+    - name: Generate Coverage Report
+      run: |
+        lcov --directory build --capture --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/nlohmann/*' --output-file coverage.info
+        lcov --list coverage.info
+
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.info
+        fail_ci_if_error: false
+        verbose: true

@@ -1,0 +1,116 @@
+name: BuildAndTestWindows
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  BUILD_DIR: ${{github.workspace}}/build
+
+jobs:
+  build_win_msvc:
+    name: Build and Test [windows-2022, MSVC]
+    runs-on: windows-2022
+
+    steps:
+    - name: Initialization
+      run: |
+        git config --global core.autocrlf true
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Install Dependencies and LLVM
+      run: |
+        # Remove potentially broken LLVM installation
+        echo "Removing existing LLVM installation..."
+        choco uninstall llvm -y --remove-dependencies || echo "No LLVM to remove"
+        
+        # Install a complete LLVM with development files
+        echo "Installing fresh LLVM installation..."
+        choco install llvm --version=18.1.8 -y
+        
+        # Verify installation
+        if (Test-Path "C:\Program Files\LLVM\bin\clang.exe") {
+            echo "✓ LLVM binary installed"
+            & "C:\Program Files\LLVM\bin\clang.exe" --version
+        } else {
+            echo "✗ LLVM binary not found"
+            exit 1
+        }
+        
+        # Install vcpkg for GTest
+        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        C:\vcpkg\bootstrap-vcpkg.bat
+        C:\vcpkg\vcpkg integrate install
+        C:\vcpkg\vcpkg install gtest:x64-windows
+
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Verify LLVM Installation and Download if Needed
+      run: |
+        echo "Checking LLVM CMake configuration files..."
+        
+        $llvmCmakeOk = Test-Path "C:\Program Files\LLVM\lib\cmake\llvm\LLVMConfig.cmake"
+        $clangCmakeOk = Test-Path "C:\Program Files\LLVM\lib\cmake\clang\ClangConfig.cmake"
+        
+        if ($llvmCmakeOk) {
+            echo "✓ LLVM CMake files found"
+            Get-ChildItem "C:\Program Files\LLVM\lib\cmake\llvm" | Select-Object Name
+        } else {
+            echo "✗ LLVM CMake files not found or incomplete"
+        }
+        
+        if ($clangCmakeOk) {
+            echo "✓ Clang CMake files found"
+            Get-ChildItem "C:\Program Files\LLVM\lib\cmake\clang" | Select-Object Name
+        } else {
+            echo "✗ Clang CMake files not found"
+        }
+        
+        # If either is missing, try alternative installation
+        if (-not $llvmCmakeOk -or -not $clangCmakeOk) {
+            echo "Installing LLVM from GitHub releases (more complete)..."
+            
+            # Download and install LLVM from GitHub releases
+            $llvmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/LLVM-18.1.8-win64.exe"
+            $llvmInstaller = "$env:TEMP\LLVM-18.1.8-win64.exe"
+            
+            echo "Downloading LLVM installer..."
+            Invoke-WebRequest -Uri $llvmUrl -OutFile $llvmInstaller
+            
+            echo "Installing LLVM..."
+            Start-Process -FilePath $llvmInstaller -ArgumentList "/S" -Wait
+            
+            # Verify again
+            if (Test-Path "C:\Program Files\LLVM\lib\cmake\llvm\LLVMConfig.cmake") {
+                echo "✓ LLVM installation successful"
+            } else {
+                echo "✗ LLVM installation failed"
+                exit 1
+            }
+        }
+
+    - name: Configure CMake
+      run: |
+        # Configure without vcpkg first to avoid interference
+        cmake -B ${{ env.BUILD_DIR }} `
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+          -DLLVM_DIR="C:/Program Files/LLVM/lib/cmake/llvm" `
+          -DClang_DIR="C:/Program Files/LLVM/lib/cmake/clang" `
+          -DCMAKE_PREFIX_PATH="C:/vcpkg/installed/x64-windows" `
+          -G "Visual Studio 17 2022" -A x64
+
+    - name: Build
+      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
+
+    - name: Test
+      working-directory: ${{ env.BUILD_DIR }}
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose

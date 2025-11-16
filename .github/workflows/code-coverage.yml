@@ -28,6 +28,9 @@ jobs:
           clang-14 llvm-14 llvm-14-tools \
           libclang-14-dev cmake libgtest-dev
 
+    - name: Add LLVM tools to PATH
+      run: echo "/usr/lib/llvm-14/bin" >> $GITHUB_PATH
+
     - name: Configure CMake with Clang Coverage Flags
       run: |
         cmake -B ${{ env.BUILD_DIR }} \
@@ -53,10 +56,10 @@ jobs:
 
     - name: Generate Coverage Report
       run: |
-        llvm-cov report ${{ env.BUILD_DIR }}/ds_annotation \
+        llvm-cov report ${{ env.BUILD_DIR }}/dsannotation \
           -instr-profile=coverage.profdata \
           --ignore-filename-regex='/usr/*'
-        llvm-cov show ${{ env.BUILD_DIR }}/ds_annotation \
+        llvm-cov show ${{ env.BUILD_DIR }}/dsannotation \
           -instr-profile=coverage.profdata \
           -format=html > coverage.html
 

@@ -71,11 +71,11 @@ jobs:
         name: clang-coverage-report
         path: coverage.html
 
-    # - name: Upload to Codecov
-    #   uses: codecov/codecov-action@v4
-    #   with:
-    #     token: ${{ secrets.CODECOV_TOKEN }} # Add this secret in your repo settings
-    #     files: coverage.profdata
-    #     flags: clang
-    #     name: codecov
-    #     fail_ci_if_error: true
+    - name: Upload to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ${{ env.BUILD_DIR }}/coverage.profdata
+        flags: clang
+        name: clang-codecov
+        fail_ci_if_error: true

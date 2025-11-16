@@ -48,18 +48,18 @@ jobs:
     - name: Run Tests with Coverage
       working-directory: ${{ env.BUILD_DIR }}
       run: |
-        LLVM_PROFILE_FILE="${LLVM_PROFILE_FILE}" ctest --verbose
+        LLVM_PROFILE_FILE="${{ env.BUILD_DIR }}/coverage.profraw" ctest --verbose
 
     - name: Merge Coverage Data
       run: |
-        llvm-profdata merge -sparse ${LLVM_PROFILE_FILE} -o coverage.profdata
+        llvm-profdata merge -sparse ${{ env.BUILD_DIR }}/coverage.profraw -o coverage.profdata
 
     - name: Generate Coverage Report
       run: |
-        llvm-cov report ${{ env.BUILD_DIR }}/dsannotation \
+        llvm-cov report ${{ env.BUILD_DIR }}/dsannotation_tests \
           -instr-profile=coverage.profdata \
           --ignore-filename-regex='/usr/*'
-        llvm-cov show ${{ env.BUILD_DIR }}/dsannotation \
+        llvm-cov show ${{ env.BUILD_DIR }}/dsannotation_tests \
           -instr-profile=coverage.profdata \
           -format=html > coverage.html
 

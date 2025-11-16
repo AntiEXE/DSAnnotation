@@ -133,3 +133,10 @@ target_compile_definitions(dsannotation
 
 enable_testing()
 add_subdirectory(tests)
+
+
+# Apply coverage flags to test executable
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(dsannotation_tests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+    target_link_options(dsannotation_tests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+endif()

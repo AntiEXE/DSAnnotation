@@ -35,7 +35,9 @@ jobs:
           -DCMAKE_C_COMPILER=clang-14 \
           -DCMAKE_CXX_COMPILER=clang++-14 \
           -DCMAKE_C_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
-          -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping"
+          -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+          -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
+          -DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang
 
     - name: Build
       run: cmake --build ${{ env.BUILD_DIR }} --config ${BUILD_TYPE}

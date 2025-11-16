@@ -60,22 +60,22 @@ jobs:
             -instr-profile=coverage.profdata \
             --ignore-filename-regex='/usr/*|include/nlohmann/*'
 
-        llvm-cov show ${{ env.BUILD_DIR }}/tests/dsannotation_tests \
+        llvm-cov export ${{ env.BUILD_DIR }}/tests/dsannotation_tests \
             -instr-profile=coverage.profdata \
             --ignore-filename-regex='/usr/*|include/nlohmann/*' \
-            -format=html > coverage.html
+            -format=lcov > coverage.info
 
     - name: Upload Coverage Report Artifact
       uses: actions/upload-artifact@v4
       with:
         name: clang-coverage-report
-        path: coverage.html
+        path: coverage.info
 
     - name: Upload to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ${{ env.BUILD_DIR }}/coverage.profdata
+        files: ${{ env.BUILD_DIR }}/coverage.info
         flags: clang
         name: clang-codecov
         fail_ci_if_error: true

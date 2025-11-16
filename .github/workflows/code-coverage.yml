@@ -58,10 +58,11 @@ jobs:
       run: |
         llvm-cov report ${{ env.BUILD_DIR }}/tests/dsannotation_tests \
             -instr-profile=coverage.profdata \
-            --ignore-filename-regex='/usr/*'
+            --ignore-filename-regex='/usr/*|include/nlohmann/*'
 
         llvm-cov show ${{ env.BUILD_DIR }}/tests/dsannotation_tests \
             -instr-profile=coverage.profdata \
+            --ignore-filename-regex='/usr/*|include/nlohmann/*' \
             -format=html > coverage.html
 
     - name: Upload Coverage Report Artifact

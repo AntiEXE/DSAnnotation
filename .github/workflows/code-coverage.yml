@@ -56,12 +56,13 @@ jobs:
 
     - name: Generate Coverage Report
       run: |
-        llvm-cov report ${{ env.BUILD_DIR }}/dsannotation_tests \
-          -instr-profile=coverage.profdata \
-          --ignore-filename-regex='/usr/*'
-        llvm-cov show ${{ env.BUILD_DIR }}/dsannotation_tests \
-          -instr-profile=coverage.profdata \
-          -format=html > coverage.html
+        llvm-cov report ${{ env.BUILD_DIR }}/tests/dsannotation_tests \
+            -instr-profile=coverage.profdata \
+            --ignore-filename-regex='/usr/*'
+
+        llvm-cov show ${{ env.BUILD_DIR }}/tests/dsannotation_tests \
+            -instr-profile=coverage.profdata \
+            -format=html > coverage.html
 
     - name: Upload Coverage Report Artifact
       uses: actions/upload-artifact@v4

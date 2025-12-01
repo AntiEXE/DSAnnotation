@@ -1,0 +1,40 @@
+name: Sanitizer Checks
+
+on: [push, pull_request]
+
+jobs:
+  sanitizer_build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    # 1. Install Dependencies (LLVM, Clang, GTest)
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get -yq --no-install-suggests --no-install-recommends install \
+          valgrind lld \
+          llvm-14 llvm-14-dev libclang-14-dev clang-14 \
+          libgtest-dev cmake
+        
+
+    # 2. Configure CMake with Sanitizers ENABLED
+    - name: Configure CMake
+      run: |
+        # We explicitly set the compiler to Clang
+        export CC=clang
+        export CXX=clang++
+        
+        cmake -S . -B build -DENABLE_SANITIZERS=ON
+
+    # 3. Build the project
+    - name: Build
+      run: cmake --build build --verbose
+
+    # 4. Run Tests
+    # If this step fails, it means a Sanitizer found a bug!
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure

@@ -1,6 +1,23 @@
 cmake_minimum_required(VERSION 3.16)
 project(DSAnnotation)
 
+# --- START SANITIZER BLOCK ---
+# 1. Create a switch named "ENABLE_SANITIZERS". Default is OFF.
+option(ENABLE_SANITIZERS "Enable Address and Undefined Behavior Sanitizers" OFF)
+
+if(ENABLE_SANITIZERS)
+    message(STATUS "Building with Sanitizers: ASan + UBSan")
+
+    # 2. Compiler Flags: Adds the "sensors" to your code
+    # -fsanitize=address,undefined: Turn on Address and UB checks
+    # -fno-omit-frame-pointer: Keeps stack info so error logs show line numbers
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+
+    # 3. Linker Flags: Links the "crash reporter" library
+    add_link_options(-fsanitize=address,undefined)
+endif()
+# --- END SANITIZER BLOCK ---
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

@@ -43,4 +43,4 @@ jobs:
     - name: Test
       working-directory: ${{ env.BUILD_DIR }}
       # --output-on-failure is CRITICAL. Without it, CTest hides the sanitizer error report!
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --verbose

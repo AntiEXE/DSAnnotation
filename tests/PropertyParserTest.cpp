@@ -71,3 +71,15 @@ TEST_F(PropertyParserTest, ParsesRegularNumbersAsNumbers) {
     EXPECT_TRUE(result["float"].is_number_float());
     EXPECT_TRUE(result["negative"].is_number_integer());
 }
+
+// Add this to any existing .cpp file in your tests/ folder
+TEST(SanitizerVerification, IntentionalCrash) {
+    int* leak = new int[10];
+    delete[] leak;
+    
+    // BUG: Writing to memory we just freed (Use-After-Free)
+    leak[0] = 1337; 
+    
+    // If Sanitizers are OFF: This might actually pass (silently corrupting memory).
+    // If Sanitizers are ON: The build will fail immediately.
+}

@@ -1,40 +1,46 @@
-name: Sanitizer Checks
+name: Sanitizer Checks [ASan + UBSan]
 
+# Trigger on push/PR
 on: [push, pull_request]
 
-jobs:
-  sanitizer_build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
+# Define environment variables globally for clarity
+env:
+  BUILD_TYPE: Release
+  BUILD_DIR: build
 
-    # 1. Install Dependencies (LLVM, Clang, GTest)
+jobs:
+  sanitizer_test:
+    name: Run Sanitizers (Clang 14)
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    
     - name: Install Dependencies
       run: |
         sudo apt-get update
+        # Removed 'valgrind' - we don't need it with ASan
         sudo apt-get -yq --no-install-suggests --no-install-recommends install \
-          valgrind lld \
+          lld \
           llvm-14 llvm-14-dev libclang-14-dev clang-14 \
           libgtest-dev cmake
-        
-
-    # 2. Configure CMake with Sanitizers ENABLED
-    - name: Configure CMake
+      
+    - name: Configure CMake (With Sanitizers ON)
       run: |
-        # We explicitly set the compiler to Clang
-        export CC=clang
-        export CXX=clang++
-        
-        cmake -S . -B build -DENABLE_SANITIZERS=ON
+        cmake -B ${{ env.BUILD_DIR }} \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_C_COMPILER=clang-14 \
+          -DCMAKE_CXX_COMPILER=clang++-14 \
+          -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
+          -DClang_DIR=/usr/lib/llvm-14/lib/cmake/clang \
+          -DENABLE_SANITIZERS=ON 
 
-    # 3. Build the project
     - name: Build
-      run: cmake --build build --verbose
+      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
 
-    # 4. Run Tests
-    # If this step fails, it means a Sanitizer found a bug!
-    - name: Run Tests
-      run: |
-        cd build
-        ctest --output-on-failure
+    - name: Test
+      working-directory: ${{ env.BUILD_DIR }}
+      # --output-on-failure is CRITICAL. Without it, CTest hides the sanitizer error report!
+      run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure
